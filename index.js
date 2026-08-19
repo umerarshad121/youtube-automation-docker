@@ -8,6 +8,14 @@ const execPromise = util.promisify(exec);
 const app = express();
 app.use(express.json({ limit: '50mb' })); // Barray arrays handle karne ke liye limit barha di hai
 
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'youtube-automation-ffmpeg' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.post('/process-video', async (req, res) => {
   let tempFiles = [];
   try {
@@ -72,4 +80,6 @@ app.post('/process-video', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+server.timeout = 15 * 60 * 1000;
+server.headersTimeout = 16 * 60 * 1000;
