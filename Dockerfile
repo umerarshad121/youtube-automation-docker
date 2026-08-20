@@ -1,11 +1,11 @@
 FROM node:18-slim
 
-# Install FFmpeg
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+COPY --from=mwader/static-ffmpeg:7.1.1 /ffmpeg /usr/local/bin/
+COPY --from=mwader/static-ffmpeg:7.1.1 /ffprobe /usr/local/bin/
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --omit=dev
 COPY . .
 
 EXPOSE 3000
