@@ -1,0 +1,23 @@
+services:
+  ffmpeg-service:
+    build: .
+    container_name: youtube-automation
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: youtube-automation-tunnel
+    command: tunnel --no-autoupdate --url http://ffmpeg-service:3000
+    depends_on:
+      ffmpeg-service:
+        condition: service_healthy
+    restart: unless-stopped
