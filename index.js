@@ -9,7 +9,6 @@ const execPromise = util.promisify(exec);
 const app = express();
 app.use(express.json({ limit: '100mb' }));
 
-// Stream downloader with strict error handling & auto-retry headers
 const downloadFile = async (fileUrl, outputPath) => {
   const writer = fs.createWriteStream(outputPath);
 
@@ -64,6 +63,14 @@ app.post('/process-video', async (req, res) => {
 
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
+      
+      const imgUrl = scene.image_url || scene.imageUrl;
+      const audUrl = scene.audio_url || scene.audioUrl;  
+
+      if (!imgUrl || !audUrl) { 
+        throw new Error(`Scene ${i + 1}: Missing image or audio URL`);
+      }
+
       const localImg = `/tmp/img_${timestamp}_${i}.jpg`;
       const localAud = `/tmp/aud_${timestamp}_${i}.mp3`;
       const clipPath = `/tmp/clip_${timestamp}_${i}.mp4`;
@@ -72,19 +79,18 @@ app.post('/process-video', async (req, res) => {
 
       console.log(`[SCENE ${i + 1}] Downloading assets...`);
       await Promise.all([
-        downloadFile(scene.imageUrl, localImg),
-        downloadFile(scene.audioUrl, localAud)
+        downloadFile(imgUrl, localImg),
+        downloadFile(audUrl, localAud)
       ]);
 
-      console.log(`[SCENE ${i + 1}] Rendering video clip with FFmpeg...`);
-      // Scaling + Centering + Zoompan filter safely wrapped
-      const command = `ffmpeg -y -loop 1 -i "${localImg}" -i "${localAud}" -vf "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,zoompan=z='min(zoom+0.0015,1.3)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080,format=yuv420p" -c:v libx264 -preset ultrafast -c:a aac -shortest "${clipPath}"`;
+      console.log(`[SCENE ${i + 1}] Rendering video clip with FFmpeg (720p Optimized)...`);
+      // Updated to 720p (1280x720) with ultrafast preset for faster rendering
+      const command = `ffmpeg -y -loop 1 -i "${localImg}" -i "${localAud}" -vf "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,zoompan=z='min(zoom+0.0015,1.3)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720,format=yuv420p" -c:v libx264 -preset ultrafast -threads 4 -c:a aac -shortest "${clipPath}"`;
       
       await execPromise(command);
       clipPaths.push(clipPath);
     }
 
-    // Concatenate all scene clips
     const concatFilePath = `/tmp/concat_${timestamp}.txt`;
     const finalOutputPath = `/tmp/output_final_${timestamp}.mp4`;
     tempFiles.push(concatFilePath, finalOutputPath);
